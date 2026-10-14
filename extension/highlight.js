@@ -3,7 +3,9 @@
  if(location.origin!=='https://github.com')return;
  let target=null,tip=null,style=null,controller=null,observer=null,phase=0;
  const ko=(document.documentElement.lang||navigator.language||'').toLowerCase().startsWith('ko');
- const norm=e=>(e?.getAttribute('aria-label')||e?.getAttribute('data-testid')||e?.textContent||'').replace(/\s+/g,' ').trim();
+ // GitHub 아이콘 버튼(복사 등)은 이름이 aria-labelledby 툴팁에만 있다
+ const labelledBy=e=>(e?.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>id&&document.getElementById(id)?.textContent||'').join(' ').trim();
+ const norm=e=>(e?.getAttribute('aria-label')||labelledBy(e)||e?.getAttribute('data-testid')||e?.textContent||'').replace(/\s+/g,' ').trim();
  const visible=e=>{if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0};
  function cleanup(){controller?.abort();observer?.disconnect();target?.classList.remove('orca-v2-target');tip?.remove();style?.remove();target=tip=style=controller=observer=null;phase=0}
  function position(){if(!target||!tip)return;const r=target.getBoundingClientRect();const h=tip.offsetHeight||90;tip.style.left=Math.max(8,Math.min(innerWidth-310,r.left))+'px';tip.style.top=(r.bottom+h+12<innerHeight?r.bottom+12:Math.max(8,r.top-h-12))+'px'}
@@ -16,13 +18,11 @@
  async function copyDone(){
   const url=location.origin+location.pathname.replace(/\/$/,'')+'.git';
   let verified=false;await new Promise(resolve=>setTimeout(resolve,250));try{const clip=await navigator.clipboard.readText();verified=clip.trim().replace(/\.git$/,'')===url.replace(/\.git$/,'')}catch{}
-  chrome.storage.local.get(['pair'],async ({pair})=>{
-   if(!pair)return;
-   const match=/^(\d{2,5}):([a-f0-9]{36})$/.exec(pair);if(!match)return;
-   try{await fetch('http://127.0.0.1:'+match[1]+'/event',{method:'POST',headers:{'Content-Type':'application/json','X-Orca-Token':match[2]},body:JSON.stringify({event:'github-copy-clicked',url,verified})})}catch{}
-  });
+  let sent={ok:false,reason:'no-extension'};
+  try{sent=await chrome.runtime.sendMessage({type:'bridge-event',url,verified})}catch{}
   if(!tip)return; // 대기 중 cleanup(페이지 이동·중지)되면 tip 이 null
-  tip.textContent=verified?'✓ 클립보드에 저장소 주소가 복사된 것을 확인했습니다.':'복사 버튼 클릭 감지 · 브라우저가 클립보드 읽기를 허용하지 않아 복사 성공은 확인되지 않았습니다.';
+  tip.textContent=(verified?'✓ 클립보드에 저장소 주소가 복사된 것을 확인했습니다.':'복사 버튼 클릭 감지 · 브라우저가 클립보드 읽기를 허용하지 않아 복사 성공은 확인되지 않았습니다.')
+   +(sent?.ok?' 데스크톱 튜터에 전달했습니다.':sent?.reason==='no-pair'?' 확장 팝업에 연결 코드를 저장하면 튜터가 자동으로 넘어갑니다.':' 데스크톱 튜터에 연결하지 못했습니다(앱 실행·연결 코드 확인).');
  }
  function advance(){if(phase!==0)return;phase=1;tip.textContent='② 열린 메뉴에서 HTTPS 주소 옆 복사 버튼을 누르세요.';let attempts=0;const timer=setInterval(()=>{if(!tip||phase!==1){clearInterval(timer);return}const copy=findCopy();if(copy){clearInterval(timer);highlight(copy,ko?'② 노란색 HTTPS 복사 버튼을 클릭하세요.':'② Click the highlighted HTTPS copy button.');copy.addEventListener('click',()=>{phase=2;copyDone()},{once:true,signal:controller.signal})}else if(++attempts>24){clearInterval(timer);tip.textContent='복사 버튼을 찾지 못했습니다. Code → Local → HTTPS를 선택하고 복사 아이콘을 눌러주세요.'}},250);controller.signal.addEventListener('abort',()=>clearInterval(timer),{once:true})}
  function start(){cleanup();if(!/^\/[A-Za-z0-9-]+\/[A-Za-z0-9._-]+\/?$/.test(location.pathname))return {message:'GitHub 저장소 메인 페이지에서 실행하세요.'};

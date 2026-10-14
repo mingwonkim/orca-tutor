@@ -4,3 +4,4 @@
 - 사용자가 폰에서 v0.3 zip 을 GitHub 에 올림 → 클론·압축 해제 후 이전 버전들처럼 리뷰+패치 진행.
 - 복사 이벤트를 강의 예제 저장소 URL 과 대조하기로 함: 다른 저장소에서 복사해도 clone 2단계가 넘어가던 문제. 기준 URL 은 lessons.js clone 1단계 `url` 하나만 둔다(중복 하드코딩 방지).
 - `npm test` 는 사용자 승인 후 실행 — 64/64 통과 (2026-10-14).
+- 브리지 호출을 서비스 워커로 옮김: 콘텐츠 스크립트 fetch 가 Chrome 로컬 네트워크 접근 검사(LocalNetworkAccessPermissionDenied)에 막히는 걸 실제 github.com 에서 네트워크 로그로 확인. 브리지 Origin 검사를 github.com 까지 넓히는 대안은 아무 웹페이지 스크립트가 토큰만 알면 호출 가능해져서 버림.

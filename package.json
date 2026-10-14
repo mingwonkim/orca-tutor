@@ -1,6 +1,6 @@
 {
   "name": "orca-interactive-tutor",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Cross-platform Orca IDE guided tutorial",
   "main": "src/main.cjs",
