@@ -1,65 +1,60 @@
-# Orca Interactive Tutor — MVP v0.1.1
+# Orca Interactive Tutor — v0.4.0
 
-> v0.1.1: 리뷰 반영판. 변경 내역과 남은 작업은 `REVIEW_RESULT.md` 참고.
+Orca IDE 초보자용 단계별 튜토리얼(Electron 데스크톱 앱) + GitHub 형광펜 Chrome 확장.
 
-Windows/macOS 공용 Orca IDE 단계별 튜토리얼 + GitHub 웹페이지 형광펜 강조 Chrome 확장 프로그램.
+## 설치
 
-## 시작하기
+### 설치 파일 (Windows)
+`npm run dist:win` → `dist/` 에 설치 프로그램(`Orca Tutor Setup 0.4.0.exe`)과 무설치 실행 파일(`Orca Tutor-0.4.0-portable.exe`)이 생깁니다.
+코드 서명이 없어서 처음 실행할 때 Windows SmartScreen 경고가 뜰 수 있습니다(추가 정보 → 실행).
 
-Node.js 20 이상 설치 후 프로젝트 폴더에서:
+macOS 는 macOS 에서 `npm run dist:mac` 으로 dmg 를 만듭니다(서명·공증 없음, 미검증).
 
+### 소스에서 실행
 ```bash
 npm install
 npm start
-npm test   # 레슨 스키마·상태 단위 테스트
+npm test        # 단위 테스트
 ```
 
-Windows에서는 PowerShell, macOS에서는 Terminal에서 실행합니다. Electron은 해당 OS에서 설치 및 실행되어야 합니다. 이 압축파일에는 설치 프로그램(.exe/.dmg)이나 node_modules가 포함되지 않습니다.
+### 브라우저 확장
+1. `chrome://extensions` → 개발자 모드 → **압축해제된 확장 프로그램을 로드합니다** → `extension` 폴더
+   (설치 파일로 깔았다면 설치 폴더의 `resources/extension`)
+2. 튜터 앱 "브라우저 연동"의 **연결 코드 복사** → 확장 팝업에 붙여 넣고 저장
+3. GitHub 저장소 페이지에서 확장 팝업 → **형광펜 튜토리얼 시작**
+4. 처음 복사할 때 Chrome 이 "클립보드 확인" 권한을 물으면 허용(복사된 주소 확인용, 차단해도 진행 가능)
 
-## 브라우저 형광펜 확장
+## 무엇을 자동으로 해 주나
 
-1. Chrome 주소창에서 `chrome://extensions` 열기
-2. 우측 상단 **개발자 모드** 켜기
-3. **압축해제된 확장 프로그램을 로드합니다** 선택
-4. 이 프로젝트의 `extension` 폴더 선택
-5. GitHub 저장소(예: https://github.com/mingwonkim/harujon-assets) 열기
-6. 확장 아이콘 → **GitHub Code 버튼 강조** 클릭
+| 기능 | 방법 | 플랫폼 |
+|---|---|---|
+| Orca 작업 자동 확인 → 다음 단계 자동 진행 | 공식 `orca` CLI(`repo list`·`worktree list`·`terminal list --json`) 읽기 전용 조회. 프로젝트 등록, 새 Worktree, 터미널 분할(2·3·4분할), 에이전트 3개 실행 | Windows·macOS (CLI 가 있으면) |
+| Orca 화면 버튼 형광펜 | Windows UI Automation 으로 Orca 창의 버튼(프로젝트 추가, 새 탭, 오른쪽 분할, 작업 트리 검색, 설정 등) 위치를 1초마다 찾아 클릭이 통과되는 노란 테두리 표시. 한국어·영어 UI | Windows 전용 (macOS 는 수동 좌표 형광펜) |
+| 단축키 표기 | Orca 1.4.205 설치 파일의 기본 단축키 표로 검증한 값. `~/.orca/keybindings.json` 에 바꾼 값이 있으면 그 값을 표시 | 공통 |
+| GitHub Code → HTTPS 복사 안내 | 확장이 화면 상태(메뉴 닫힘/Local/HTTPS/복사)를 보고 다음 클릭할 곳을 강조. 복사하면 클립보드 확인 후 튜터에 전달 | Chrome |
+| Clone 폴더 확인 | `git rev-parse`·`remote get-url` 로 예제 저장소 clone 여부 확인(읽기 전용) | 공통 |
 
-확장은 GitHub 페이지의 실제 `Code` 버튼을 DOM으로 탐색해 노란색 테두리를 표시합니다. 버튼 클릭 시 안내 문구가 바뀝니다. GitHub UI가 변경되면 선택자 보완이 필요할 수 있습니다.
+자동 확인이 없는 단계(Orca 실행, 팔레트 열기, 실행 환경 선택 등)는 직접 확인한 뒤 **완료했어요**를 누릅니다.
 
-## 구현된 내용
+## 검증한 것 / 못 한 것
+- Windows 10 + Orca 1.4.205 + Chrome 154: 단위 테스트, `scripts/e2e-*.cjs`(실제 github.com·실제 Orca CLI·실제 Orca 창 UIA, 빌드된 exe 포함), computer-use 로 실제 Chrome 에 확장 설치부터 복사·앱 진행까지 사람처럼 조작.
+- **못 한 것**: macOS 실행·dmg, 코드 서명, 영어 UI Orca(버튼 이름은 Orca 번역 원문에서 가져옴), Orca 다른 버전, 설치 프로그램(NSIS) 실제 설치 과정.
 
-- Windows/macOS 공용 Electron 데스크톱 앱
-- 항상 위에 뜨는 안내창, 과정/단계 이동, 로컬 진행 상황 저장
-- 운영체제별 단축키 표시, 명령어 복사, 예제 저장소 열기
-- 기초/Worktree/4분할/멀티 프로젝트/Flutter 병렬 개발 실습
-- GitHub Code 버튼 실시간 DOM 형광펜 강조 Chrome 확장
+## E2E (PC 를 쓰는 중에도 돌릴 수 있게 앱은 숨김 모드)
+```bash
+node scripts/e2e-orca.cjs                                          # 앱을 직접 숨김 모드로 띄움
+ORCA_TUTOR_BIN="dist/win-unpacked/Orca Tutor.exe" node scripts/e2e-orca.cjs   # 빌드 결과 검사
+ORCA_TUTOR_HIDDEN=1 npx electron . --remote-debugging-port=9333    # 아래 두 개용
+node scripts/e2e-extension.cjs                                     # headless Chrome + 실제 github.com
+node scripts/e2e-overlay.cjs                                       # 수동 형광펜 + 창 닫기 → 앱 종료
+```
 
-## 아직 구현하지 않은 것
+## 구조
+- `src/main.cjs` — Electron 메인. IPC 는 메인 문서(index.html)만 허용, 외부 URL 허용 목록
+- `src/orca.cjs` — Orca CLI 조회·판정(`evaluate`), 단축키 파일, Windows UIA 버튼 찾기(상주 PowerShell)
+- `src/bridge.cjs` — 127.0.0.1 전용 브리지(확장 → 앱), 실행마다 새 토큰
+- `src/lessons.js` — 6개 과정 29단계. `check`(자동 확인), `target`(형광펜 버튼), `action`(단축키 ID)
+- `extension/` — Chrome MV3. 브리지 호출은 `background.js` 서비스 워커만
+- 리뷰 기록: `REVIEW_RESULT.md`(v0.1.1), `REVIEW_V021.md`, `REVIEW_V030.md`, `REVIEW_V031.md`, `ASTRA_REVIEW_V031.md`, `REVIEW_V040.md`
 
-- Orca 내부 버튼 자동 인식 및 정확한 위치 강조
-- Orca 작업 완료 자동 검증, 전역 단축키 감지
-- 사이트 전체 자동 탐색/AI Computer Use, Firefox/Safari 지원
-- Electron 데스크톱 앱과 브라우저 확장 사이 진행 상태 동기화
-- UI 언어 자동 판별 및 번역 (기본 안내 언어: 한국어; Orca 메뉴명은 첨부 문서 기준)
-
-따라서 데스크톱 실습은 실제 완료 여부를 확인하고 **완료했어요**를 눌러야 진행합니다. GitHub의 Code 버튼은 자동 강조되지만 웹사이트 개편 시 동작이 달라질 수 있습니다.
-
-## 출처 및 검증 주의
-
-`docs/orca_ade_guide.md`는 사용자가 제공한 원본입니다. 단축키/메뉴 이름은 설치된 Orca 버전에서 `Settings → Shortcuts`를 통해 확인해야 합니다. 실무 시나리오는 특정 기업의 검증된 실제 운영 방식이 아닌 교육용 예시입니다.
-
-## 프로젝트 구조
-
-- `src/main.cjs`: Electron 창과 외부 URL 열기
-- `src/preload.cjs`: 최소 권한 IPC
-- `src/index.html`, `src/renderer.js`: 튜토리얼 UI
-- `src/lessons.js`: 튜토리얼 데이터(현업 설명 필드 포함)
-- `src/state.js`: 진행 상태 정규화
-- `test/`: 단위 테스트
-- `extension/`: Chrome MV3 브라우저 강조 도구
-- `docs/`: 원본 MD 가이드
-
-## Claude 리뷰 안내
-
-`CLAUDE_REVIEW.md`를 Claude에게 전달해 리뷰를 요청하세요. `docs/REAL_WORLD_USE_CASES.md`는 각 기능의 현업 활용 설명을 정리한 **교육 콘텐츠 초안**입니다. v0.1.1부터 각 단계 카드에 "왜 하는가 / 현업에서는 / 성공하면 / 주의할 점" 패널이 표시됩니다.
+실무 시나리오는 교육용 예시이며 특정 회사의 검증된 운영 방식이 아닙니다.

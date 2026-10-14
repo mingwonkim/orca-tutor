@@ -21,6 +21,7 @@ button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px soli
 .step{font-size:12px;color:#abb9d5;margin:12px 0}.title{font-size:20px;font-weight:750;margin:10px 0}p{line-height:1.65}
 .key{padding:12px;background:#0f1729;border:1px solid #5365a4;border-radius:9px;text-align:center;font-size:20px;font-weight:700;margin:14px 0}
 .key .unverified{font-size:11px;font-weight:600;color:#ffd479;margin-top:6px}
+.key .keynote{font-size:11px;font-weight:500;color:#9ba9c3;margin-top:6px}
 .menu{font-size:12px;color:#c7d0e6;background:#16203a;border-left:3px solid #ffd479;padding:8px 10px;border-radius:6px}
 code{white-space:pre-wrap;word-break:break-all;color:#a3f3cf}
 .command{background:#101a2c;padding:12px;border-radius:9px;margin:10px 0}
@@ -50,6 +51,8 @@ label{font-size:12px}.hint{font-size:12px;line-height:1.5;color:#a6b3cf;margin-t
     <p id="body"></p>
     <div id="key" class="key" hidden></div>
     <div id="menu" class="menu" hidden></div>
+    <div id="pen" class="menu" hidden><label><input id="penOn" type="checkbox" checked> Orca 화면에 형광펜</label> <span id="penStatus" class="muted"></span></div>
+    <div id="auto" class="menu" hidden></div>
     <div id="command" class="command" hidden></div>
     <div id="link"></div>
     <div id="pair" class="command"><strong>브라우저 연동</strong><p class="muted" style="font-size:12px">확장 프로그램에 아래 연결 코드를 입력하세요. 코드는 앱을 다시 시작하면 바뀝니다.</p><code id="paircode" style="display:block;margin:6px 0 10px">연결 준비 중</code><button class="secondary" id="copyPair">연결 코드 복사</button></div>
@@ -60,7 +63,7 @@ label{font-size:12px}.hint{font-size:12px;line-height:1.5;color:#a6b3cf;margin-t
     <div class="actions"><button class="secondary" id="prev">이전</button><button id="next">완료했어요 →</button></div>
     <div id="status" role="status"></div>
   </section>
-  <p class="hint">이 버전은 Orca 내부 조작을 자동 판독하지 않습니다. 실제 작업을 확인한 뒤 ‘완료했어요’를 누르세요(Alt+→ / Alt+←로 이동). 메뉴와 단축키는 Orca 버전에 따라 달라질 수 있습니다.</p>
+  <p class="hint">프로젝트 등록·Worktree·터미널 분할·에이전트 실행 단계는 Orca CLI로 자동 확인해 저절로 넘어갑니다. 나머지 단계는 직접 확인한 뒤 ‘완료했어요’를 누르세요(Alt+→ / Alt+←로 이동). Orca 버튼 형광펜은 Windows에서만 자동입니다.</p>
   <button class="secondary" id="reset">현재 과정 처음부터</button>
 </main>
 <script src="lessons.js"></script>

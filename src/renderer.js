@@ -5,6 +5,46 @@ const CONTEXT=[['why','왜 하는가'],['practice','현업에서는'],['result',
 function storageGet(k){try{return localStorage.getItem(k)}catch{return null}}
 function storageSet(k,v){try{localStorage.setItem(k,v)}catch{}}
 
+// --- Orca 연동 상태 ---
+let userKeys={};            // ~/.orca/keybindings.json 사용자 단축키 {actionId:[...]}
+const baselines={};         // 레슨별 시작 시점 Orca 상태 (worktree·분할 "새로 생겼는지" 판정용)
+let checkRun=0;             // 단계가 바뀌면 이전 폴링을 무효화
+const fmtKey=k=>platform==='darwin'
+  ?k.split('+').map(p=>({Mod:'⌘',Cmd:'⌘',Shift:'⇧',Alt:'⌥',Ctrl:'⌃',Comma:','}[p]||p)).join(' ')
+  :k.split('+').map(p=>({Mod:'Ctrl',Cmd:'Ctrl',Comma:','}[p]||p)).join('+');
+const ORCA_REASON={'no-cli':'Orca CLI(orca)를 찾지 못했어요.','not-running':'Orca가 실행 중이 아니에요.','bad-output':'Orca 응답을 읽지 못했어요.'};
+
+function renderOrca(s){
+  const run=++checkRun,lessonId=current;
+  // 형광펜: 이 단계에 Orca 버튼 대상이 있으면 메인 프로세스가 1초마다 위치를 추적
+  const penWanted=!!s.target&&$('penOn').checked;
+  $('pen').hidden=!s.target;$('penStatus').textContent='';
+  window.orcaAPI.orcaHighlight(penWanted?s.target:null).then(r=>{
+    if(run!==checkRun||!penWanted||r.ok)return;
+    $('penStatus').textContent=r.reason==='unsupported'?'이 운영체제는 자동 형광펜 미지원 — 아래 수동 형광펜을 쓰세요.':'';
+  }).catch(()=>{});
+  // 자동 확인: orca CLI 로 2초마다 판정, 통과하면 다음 단계로
+  $('auto').hidden=!s.check;$('auto').textContent=s.check?'Orca에서 자동 확인 중…':'';
+  if(!s.check)return;
+  (async()=>{
+    if(!baselines[lessonId]){const r=await window.orcaAPI.orcaSnapshot();if(run!==checkRun)return;
+      if(!r.ok){$('auto').textContent=(ORCA_REASON[r.reason]||'Orca 상태를 읽지 못했어요.')+' 직접 확인한 뒤 “완료했어요”를 누르세요.';return}
+      baselines[lessonId]=r.snap}
+    while(run===checkRun){
+      const r=await window.orcaAPI.orcaCheck(s.check,baselines[lessonId]).catch(()=>({ok:false}));
+      if(run!==checkRun)return;
+      if(r.ok&&r.passed){next();status('✓ Orca에서 확인했어요. 다음 단계로 넘어갑니다.');return}
+      $('auto').textContent=r.ok?'Orca에서 자동 확인 중… (완료되면 저절로 넘어가요)':(ORCA_REASON[r.reason]||'Orca 상태를 읽지 못했어요.')+' 직접 확인한 뒤 “완료했어요”를 누르세요.';
+      await new Promise(res=>setTimeout(res,2000));
+    }
+  })();
+}
+window.orcaAPI.orcaKeys().then(k=>{userKeys=k||{};render()}).catch(()=>{});
+window.orcaAPI.onOrcaHighlight(d=>{
+  if($('pen').hidden)return;
+  $('penStatus').textContent=d.found?`· "${d.name}" 버튼에 표시 중`:d.orcaRunning===false?'· Orca가 실행 중이 아니에요':'· Orca 화면에서 버튼을 찾는 중… (사이드바·탭이 보이게 해주세요)';
+});
+
 let {current,positions,done}=normalizeState(LESSONS,{lesson:storageGet('lesson'),positions:storageGet('positions'),done:storageGet('done')});
 
 function save(){storageSet('lesson',current);storageSet('positions',JSON.stringify(positions));storageSet('done',JSON.stringify(done))}
@@ -25,9 +65,13 @@ function render(){
   const key=platform==='darwin'?s.mac:s.win;
   $('key').hidden=!key;$('key').replaceChildren();
   if(key){
-    const k=document.createElement('div');k.textContent=key;$('key').append(k);
-    if(s.keyVerified===false){const b=document.createElement('div');b.className='unverified';b.textContent='문서 기준 · 설치 버전에서 미검증';$('key').append(b)}
+    const mine=s.action&&userKeys[s.action];
+    const k=document.createElement('div');k.textContent=mine?(mine.length?mine.map(fmtKey).join(' / '):'단축키 해제됨'):key;$('key').append(k);
+    const b=document.createElement('div');b.className=s.keyVerified===false?'unverified':'keynote';
+    b.textContent=mine?`내 Orca 설정(~/.orca/keybindings.json) · 기본값은 ${key}`:s.keyVerified===false?'문서 기준 · 설치 버전에서 미검증':'Orca 1.4.205 기본값';
+    $('key').append(b);
   }
+  renderOrca(s);
   $('menu').hidden=!s.menu;$('menu').textContent=s.menu?'대안: '+s.menu:'';
 
   $('command').hidden=!s.command;$('command').replaceChildren();
@@ -71,7 +115,9 @@ function prev(){positions[current]=Math.max(0,positions[current]-1);save();rende
 renderOptions();
 $('lesson').onchange=e=>{current=lessonOf(e.target.value).id;save();render()};
 $('prev').onclick=prev;$('next').onclick=next;
-$('reset').onclick=()=>{positions[current]=0;done=done.filter(id=>id!==current);save();renderOptions();render()};
+$('reset').onclick=()=>{positions[current]=0;done=done.filter(id=>id!==current);delete baselines[current];save();renderOptions();render()};
+$('penOn').checked=storageGet('pen')!=='off';
+$('penOn').onchange=e=>{storageSet('pen',e.target.checked?'on':'off');render()};
 $('top').onchange=e=>window.orcaAPI.setTop(e.target.checked).catch(()=>{});
 document.addEventListener('keydown',e=>{
   if(e.target.closest('select,input,textarea'))return;

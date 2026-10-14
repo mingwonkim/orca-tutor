@@ -6,5 +6,10 @@ contextBridge.exposeInMainWorld('orcaAPI',{
   bridgeInfo:()=>ipcRenderer.invoke('bridge-info'),
   verifyRepo:url=>ipcRenderer.invoke('verify-repo',String(url)),
   highlightRect:r=>ipcRenderer.invoke('highlight-rect',r),
-  onBrowserEvent:callback=>ipcRenderer.on('browser-event',(_e,data)=>callback(data))
+  onBrowserEvent:callback=>ipcRenderer.on('browser-event',(_e,data)=>callback(data)),
+  orcaSnapshot:()=>ipcRenderer.invoke('orca-snapshot'),
+  orcaCheck:(check,base)=>ipcRenderer.invoke('orca-check',check,base),
+  orcaKeys:()=>ipcRenderer.invoke('orca-keys'),
+  orcaHighlight:patterns=>ipcRenderer.invoke('orca-highlight',patterns??null),
+  onOrcaHighlight:callback=>ipcRenderer.on('orca-highlight-status',(_e,data)=>callback(data))
 });

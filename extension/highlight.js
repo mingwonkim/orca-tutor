@@ -13,7 +13,8 @@
  const COPY=/copy (url|https|clone|to clipboard)|copy url|copied|클립보드에 복사|복사/i;
 
  function cleanup(){run++;controller?.abort();target?.classList.remove('orca-v2-target');tip?.remove();style?.remove();target=tip=style=controller=null;targetKey=result=''}
- function position(){if(!target||!tip)return;const r=target.getBoundingClientRect();const h=tip.offsetHeight||90;tip.style.left=Math.max(8,Math.min(innerWidth-310,r.left))+'px';tip.style.top=(r.bottom+h+12<innerHeight?r.bottom+12:Math.max(8,r.top-h-12))+'px'}
+ // 탭(HTTPS/Local) 안내는 바로 아래 주소칸을 가리지 않게 위쪽에 띄운다
+ function position(){if(!target||!tip)return;const r=target.getBoundingClientRect();const h=tip.offsetHeight||90;const above=Math.max(8,r.top-h-12),below=r.bottom+12;const preferAbove=targetKey==='https'||targetKey==='local';tip.style.left=Math.max(8,Math.min(innerWidth-310,r.left))+'px';tip.style.top=(preferAbove&&r.top-h-12>=8?above:below+h<innerHeight?below:above)+'px'}
  // key 가 바뀔 때만 문구를 바꾼다 — 복사 결과 문구가 다음 tick 에 덮이지 않게
  // React 가 같은 요소의 className 을 다시 써서 강조 class 를 지우므로 매번 다시 붙인다
  function highlight(el,key,message){if(el!==target){target?.classList.remove('orca-v2-target');target=el}el.classList.add('orca-v2-target');if(key!==targetKey){targetKey=key;tip.textContent=message}position()}
@@ -46,6 +47,8 @@
  async function copyDone(){
   const my=run,url=repoUrl();
   await new Promise(resolve=>setTimeout(resolve,250));if(my!==run)return; // 중지·재시작된 안내는 아무것도 보내지 않는다
+  // 첫 사용 때 Chrome 이 클립보드 권한 창을 띄우고, 답할 때까지 readText 가 멈춘다 — 그동안 이유를 알려준다
+  if(tip){tip.textContent=T('Chrome이 "클립보드 확인" 권한을 물으면 허용을 누르세요. 복사가 제대로 됐는지 확인하는 데만 씁니다. (차단해도 계속할 수 있어요)','If Chrome asks for clipboard access, click Allow (used only to verify the copied URL).');position()}
   let clip='denied';
   try{clip=(await navigator.clipboard.readText()).trim().toLowerCase().replace(/\.git$/,'')===url.replace(/\.git$/,'')?'ok':'mismatch'}catch{}
   if(my!==run)return;

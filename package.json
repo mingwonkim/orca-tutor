@@ -1,6 +1,6 @@
 {
   "name": "orca-interactive-tutor",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "Cross-platform Orca IDE guided tutorial",
   "main": "src/main.cjs",
@@ -10,9 +10,49 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging",
-    "test": "node --test"
+    "test": "node --test",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "e2e:orca": "node scripts/e2e-orca.cjs"
   },
   "devDependencies": {
-    "electron": "^44.0.0"
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "dev.mingwonkim.orca-tutor",
+    "productName": "Orca Tutor",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "extension",
+        "to": "extension"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.education"
+    }
   }
 }

@@ -5,8 +5,11 @@ const {promisify}=require('node:util');
 const run=promisify(execFile);
 const {dialog}=require('electron');
 const {startBridge}=require('./bridge.cjs');
+const orca=require('./orca.cjs');
 let bridge;let overlay=null;
 
+// E2E 용: 창을 띄우지 않고 실행 (CDP 로 조작). 사용 중인 PC 화면을 가리지 않는다.
+const HIDDEN=process.env.ORCA_TUTOR_HIDDEN==='1';
 const ALLOWED_HOSTS=new Set(['github.com','www.onorca.dev','onorca.dev']);
 
 function create(){
@@ -14,17 +17,17 @@ function create(){
   const width=410,height=Math.min(680,area.height-60);
   const win=new BrowserWindow({
     width,height,x:Math.max(area.x,area.x+area.width-width-20),y:area.y+45,
-    minWidth:350,minHeight:Math.min(470,height),alwaysOnTop:true,autoHideMenuBar:true,title:'Orca Tutor',
+    minWidth:350,minHeight:Math.min(470,height),alwaysOnTop:!HIDDEN,show:!HIDDEN,autoHideMenuBar:true,title:'Orca Tutor',
     webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}
   });
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   win.webContents.on('will-navigate',e=>e.preventDefault());
   win.loadFile(path.join(__dirname,'index.html'));
-  win.setAlwaysOnTop(true,'floating');
+  if(!HIDDEN)win.setAlwaysOnTop(true,'floating');
   // macOS: Orca가 전체 화면(별도 Space)이어도 안내창이 보이도록. 실기기 확인 필요.
   if(process.platform==='darwin')win.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
   // 숨은 overlay 창이 남아 있으면 window-all-closed 가 안 떠서 Windows 에서 앱이 종료되지 않는다
-  win.on('closed',()=>{overlay?.destroy();overlay=null});
+  win.on('closed',()=>{stopTracking();overlay?.destroy();overlay=null;orca.stopUia()});
   return win;
 }
 
@@ -58,7 +61,7 @@ function highlightRect(rect){
  if(rect.width<8||rect.height<8||rect.width>bounds.width||rect.height>bounds.height)throw Error('Invalid rectangle');
  if(!overlay){overlay=new BrowserWindow({show:false,frame:false,transparent:true,alwaysOnTop:true,focusable:false,skipTaskbar:true,hasShadow:false,webPreferences:{sandbox:true,nodeIntegration:false,contextIsolation:true}});overlay.setIgnoreMouseEvents(true,{forward:true});overlay.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html><body style="margin:0;box-sizing:border-box;width:100vw;height:100vh;border:5px solid #ffe600;border-radius:12px;background:rgba(255,230,0,.12)"></body></html>'))}
  overlay.setBounds({x:Math.round(rect.x),y:Math.round(rect.y),width:Math.round(rect.width),height:Math.round(rect.height)});
- overlay.setAlwaysOnTop(true,'screen-saver');overlay.showInactive();return true;
+ overlay.setAlwaysOnTop(true,'screen-saver');if(!HIDDEN)overlay.showInactive();return true;
 }
 ipcMain.handle('highlight-rect',(e,rect)=>{if(!fromApp(e))throw Error('Blocked sender');return highlightRect(rect)});
 // 읽기 전용 Git 검사. 결과 reason 을 단계별로 나눠 렌더러가 해결 방법을 안내한다.
@@ -81,3 +84,42 @@ ipcMain.handle('verify-repo',async(e,expectedUrl)=>{
  const match=[`https://github.com/${slug}`,`git@github.com:${slug}`,`ssh://git@github.com/${slug}`].includes(normalize(remote));
  return {ok:match,reason:match?'verified':'different-remote',folder:root,remote};
 });
+
+// --- Orca 연동: 자동 확인(orca CLI) · 사용자 단축키 · 화면 버튼 형광펜(Windows UIA) ---
+const CHECK_KINDS=new Set(['repo-registered','repos-min','new-worktrees','split','agents']);
+const errCode=e=>e?.code||'error';
+ipcMain.handle('orca-snapshot',async e=>{if(!fromApp(e))throw Error('Blocked sender');try{return {ok:true,snap:await orca.snapshot()}}catch(err){return {ok:false,reason:errCode(err)}}});
+ipcMain.handle('orca-check',async(e,check,base)=>{
+ if(!fromApp(e))throw Error('Blocked sender');
+ if(!check||!CHECK_KINDS.has(check.kind)||!base)throw Error('Invalid check');
+ try{const now=await orca.snapshot();return {ok:true,passed:orca.evaluate(check,base,now)}}catch(err){return {ok:false,reason:errCode(err)}}
+});
+ipcMain.handle('orca-keys',e=>{if(!fromApp(e))throw Error('Blocked sender');return orca.keybindings()});
+
+// 형광펜 추적: 1초마다 버튼 위치를 다시 찾아 overlay 를 옮긴다 (Orca 창을 움직이거나 레이아웃이 바뀌어도 따라감)
+let tracking=null;
+function stopTracking(){if(tracking){clearInterval(tracking.timer);tracking=null}overlay?.hide()}
+ipcMain.handle('orca-highlight',(e,patterns)=>{
+ if(!fromApp(e))throw Error('Blocked sender');
+ stopTracking();
+ if(patterns==null)return {ok:true};
+ if(!Array.isArray(patterns)||!patterns.length||patterns.length>4||!patterns.every(p=>typeof p==='string'&&p.length<200))throw Error('Invalid patterns');
+ if(process.platform!=='win32')return {ok:false,reason:'unsupported'};
+ const sender=e.sender;let busy=false;
+ const tick=async()=>{
+  if(busy||!tracking)return;busy=true;
+  try{
+   const r=await orca.findControl(patterns);if(!tracking)return;
+   if(r.hit){
+    // UIA 는 물리 픽셀, Electron 창은 DIP — 배율(125%·150%) 보정 후 버튼보다 조금 크게
+    const d=screen.screenToDipRect(null,{x:Math.round(r.hit.x),y:Math.round(r.hit.y),width:Math.round(r.hit.width),height:Math.round(r.hit.height)});
+    highlightRect({x:d.x-6,y:d.y-6,width:d.width+12,height:d.height+12});
+   }else overlay?.hide();
+   if(!sender.isDestroyed())sender.send('orca-highlight-status',{found:!!r.hit,orcaRunning:r.orca,name:r.hit?.name||null});
+  }catch{if(!sender.isDestroyed())sender.send('orca-highlight-status',{found:false,error:true})}
+  finally{busy=false}
+ };
+ tracking={timer:setInterval(tick,1000)};tick();
+ return {ok:true};
+});
+app.on('before-quit',()=>{stopTracking();orca.stopUia()});
