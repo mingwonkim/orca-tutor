@@ -88,17 +88,21 @@ function chrome() {
     await sleep(3000);
     t = await rectOf('.orca-v2-target');
     log('② highlighted:', t?.text, '| tip:', await tip());
-    await sleep(5000);
-    log('②+5s tip:', await tip());
-    log('copy-like controls:', JSON.stringify(await ev(`[...document.querySelectorAll('button,[role="button"],clipboard-copy')].filter(e=>/copy/i.test((e.getAttribute('aria-label')||'')+' '+e.textContent+' '+e.tagName)).map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,role:e.getAttribute('role'),aria:e.getAttribute('aria-label'),text:e.textContent.trim().slice(0,30),vis:r.width>0&&r.height>0,val:e.getAttribute('value'),inDialog:!!e.closest('[role="dialog"],[role="menu"],[data-testid*="clone"],.Popover,.dropdown-menu')}})`), null, 1));
-    log('code expanded:', await ev("document.querySelector('.orca-v2-target')?.getAttribute('aria-expanded')"));
-    log('git url holders:', JSON.stringify(await ev(`(()=>{const out=[];for(const e of document.querySelectorAll('*')){if(e.children.length===0&&/harujon-assets\\.git/.test(e.textContent+(e.value||'')+(e.getAttribute('value')||''))){const b=e.closest('[role="dialog"],[role="menu"],[class*="Overlay"]');out.push({tag:e.tagName,val:(e.value||e.textContent).slice(0,60),container:b&&(b.tagName+'.'+String(b.className).slice(0,60)+' role='+b.getAttribute('role')),near:[...(e.parentElement?.parentElement?.querySelectorAll('button')||[])].map(x=>({aria:x.getAttribute('aria-label'),label:x.getAttribute('aria-labelledby')&&document.getElementById(x.getAttribute('aria-labelledby'))?.textContent,text:x.textContent.trim().slice(0,20),testid:x.dataset.testid,cls:String(x.className).slice(0,40)}))})}}return out})()`), null, 1));
+    // 시나리오: GitHub CLI 탭으로 바꾸면 복사 버튼 대신 HTTPS 탭을 안내해야 한다
+    const cli = await ev(`(()=>{const e=[...document.querySelectorAll("button")].find(x=>/GitHub CLI/.test(x.getAttribute("aria-label")||x.textContent));if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+    if (cli) { await click(cli); await sleep(1200); log("CLI tab → tip:", await tip()); t = await rectOf(".orca-v2-target"); log("  highlighted:", t?.text); await click(t); await sleep(1200); log("HTTPS tab → tip:", await tip()); }
+    else log("CLI tab: not found (skip)");
     t = await rectOf('.orca-v2-target');
     if (t && /HTTPS copy|HTTPS 복사/.test(await tip())) {
       await click(t);
       await sleep(2500);
       log('③ tip:', await tip());
       log('clipboard:', await ev('navigator.clipboard.readText().catch(e=>"ERR "+e.message)'));
+      log('app after 1st copy:', await app("document.getElementById('count').textContent+' | '+document.getElementById('status').textContent"));
+      // 같은 버튼을 다시 눌러도 매번 전송돼야 한다 (앱은 이미 3단계라 진행 없이 안내만)
+      await sleep(2500); t = await rectOf('.orca-v2-target');
+      if (!t) { log('2nd: no target | tip:', await tip(), '| state:', JSON.stringify(await ev(`({inputs:[...document.querySelectorAll('input')].filter(i=>/\\.git$/.test(i.value)).map(i=>({v:i.value,vis:i.getBoundingClientRect().width>0})),expanded:[...document.querySelectorAll('button')].filter(b=>/^Code/.test(b.textContent.trim())).map(b=>b.getAttribute('aria-expanded')),targets:document.querySelectorAll('.orca-v2-target').length})`))); throw new Error('2nd copy: no highlighted target'); }
+      await click(t); await sleep(2500);
     }
     log('page errors:', errors.length ? errors : 'none');
     await sleep(1000);

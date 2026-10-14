@@ -28,7 +28,9 @@ function create(){
   return win;
 }
 
-function fromApp(e){return (e.senderFrame?.url||'').startsWith('file://')}
+// 앱 메인 문서(index.html)의 최상위 프레임만 IPC 허용 — 다른 file:// 문서·하위 프레임 차단
+const INDEX_URL=require('node:url').pathToFileURL(path.join(__dirname,'index.html')).href;
+function fromApp(e){return !!e.senderFrame&&e.senderFrame===e.sender.mainFrame&&e.senderFrame.url===INDEX_URL}
 
 app.whenReady().then(()=>{bridge=startBridge(event=>{for(const w of BrowserWindow.getAllWindows())w.webContents.send('browser-event',event)});create();app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)create()})});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
@@ -59,18 +61,23 @@ function highlightRect(rect){
  overlay.setAlwaysOnTop(true,'screen-saver');overlay.showInactive();return true;
 }
 ipcMain.handle('highlight-rect',(e,rect)=>{if(!fromApp(e))throw Error('Blocked sender');return highlightRect(rect)});
-ipcMain.handle('verify-repo',async e=>{
+// 읽기 전용 Git 검사. 결과 reason 을 단계별로 나눠 렌더러가 해결 방법을 안내한다.
+// Orca 에 프로젝트가 등록됐는지는 알 수 없으므로 여기서는 "clone 됨"까지만 판정한다.
+ipcMain.handle('verify-repo',async(e,expectedUrl)=>{
  if(!fromApp(e))throw Error('Blocked sender');
+ const m=/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(String(expectedUrl));
+ if(!m)throw Error('Invalid expected URL');
  const win=BrowserWindow.fromWebContents(e.sender);
  const selected=await dialog.showOpenDialog(win,{title:'Git 저장소 폴더 선택',properties:['openDirectory']});
  if(selected.canceled||!selected.filePaths[0])return {ok:false,reason:'cancelled'};
  const dir=selected.filePaths[0];
- try{
-  const {stdout:root}=await run('git',['-C',dir,'rev-parse','--show-toplevel'],{timeout:7000,windowsHide:true});
-  const {stdout:remote}=await run('git',['-C',dir,'remote','get-url','origin'],{timeout:7000,windowsHide:true});
-  const normalize=u=>u.trim().replace(/\.git$/,'').replace(/\/$/,'').toLowerCase();
-  const expected='https://github.com/mingwonkim/harujon-assets';
-  const match=normalize(remote)===expected||normalize(remote)==='git@github.com:mingwonkim/harujon-assets';
-  return {ok:match,reason:match?'verified':'different-remote',folder:root.trim(),remote:remote.trim()};
- }catch(err){return {ok:false,reason:'not-git-or-no-git',detail:String(err.message).slice(0,180)}}
+ const git=args=>run('git',['-C',dir,...args],{timeout:7000,windowsHide:true}).then(r=>r.stdout.trim());
+ let root,remote;
+ try{root=await git(['rev-parse','--show-toplevel'])}catch(err){return {ok:false,reason:err.code==='ENOENT'?'no-git':'not-repo'}}
+ try{await git(['rev-parse','--verify','HEAD'])}catch{return {ok:false,reason:'no-commit',folder:root}}
+ try{remote=await git(['remote','get-url','origin'])}catch{return {ok:false,reason:'no-origin',folder:root}}
+ const normalize=u=>u.trim().replace(/\.git$/,'').replace(/\/$/,'').toLowerCase();
+ const slug=`${m[1]}/${m[2]}`.toLowerCase();
+ const match=[`https://github.com/${slug}`,`git@github.com:${slug}`,`ssh://git@github.com/${slug}`].includes(normalize(remote));
+ return {ok:match,reason:match?'verified':'different-remote',folder:root,remote};
 });

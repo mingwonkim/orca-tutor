@@ -89,12 +89,27 @@ window.orcaAPI.onBrowserEvent(data=>{
   // 다른 저장소에서 복사해도 진행되지 않도록 강의의 예제 저장소와 대조
   const repo=(lessonOf('clone').steps[0].url||'').toLowerCase();
   if(String(data.url).replace(/\.git$/,'').toLowerCase()!==repo){status('다른 저장소의 복사 버튼입니다. 강의의 예제 저장소에서 진행하세요.');return}
-  if(current==='clone'&&positions.clone===1&&data.verified===true){next();status('✓ GitHub URL 클립보드 검증 성공')}else if(current==='clone'&&positions.clone===1){status('복사 클릭은 감지했지만 클립보드 확인이 불가능합니다. 주소를 확인한 뒤 직접 다음 단계로 진행하세요.')}
-  else status('GitHub 복사 버튼 클릭 감지됨. 현재 강의 단계는 변경하지 않았습니다.');
+  if(current==='clone'&&positions.clone===1&&data.verified===true){next();status('✓ GitHub URL 클립보드 검증 성공')}else if(current==='clone'&&positions.clone===1){status('복사 클릭은 감지했지만 클립보드 내용을 확인하지 못했습니다. HTTPS 주소를 다시 복사하거나, 주소를 확인한 뒤 직접 다음 단계로 진행하세요.')}
+  // 확장은 복사할 때마다 다시 보내므로, 단계를 맞춘 뒤 다시 복사하면 된다
+  else if(current==='clone'&&positions.clone>1)status('GitHub 복사 버튼 클릭 감지됨. 주소 복사 단계는 이미 지났습니다.');
+  else status('GitHub 복사 버튼 클릭 감지됨. "GitHub 프로젝트 가져오기" 2단계(Clone 주소 복사)로 이동한 뒤 복사 버튼을 다시 누르면 자동으로 넘어갑니다.');
 });
 
+const REPO_REASON={
+ 'cancelled':'폴더 선택을 취소했습니다.',
+ 'no-git':'Git이 설치되어 있지 않습니다. https://git-scm.com 에서 설치한 뒤 다시 확인하세요.',
+ 'not-repo':'선택한 폴더는 Git 저장소가 아닙니다. git clone 으로 만든 폴더(.git 이 있는 폴더)를 선택하세요.',
+ 'no-commit':'저장소에 커밋이 없습니다. 빈 폴더에서 git init 한 것이 아니라 git clone 으로 받은 폴더인지 확인하세요.',
+ 'no-origin':'origin 원격 주소가 없습니다. git clone 으로 받은 폴더인지 확인하세요.',
+ 'different-remote':'다른 저장소입니다. 강의의 예제 저장소를 clone 한 폴더를 선택하세요.'
+};
 $('verifyRepo').onclick=async()=>{
- try{const r=await window.orcaAPI.verifyRepo();if(r.ok){status('✓ Git origin 검증 완료: '+r.folder);if(current==='clone'&&positions.clone===2)next()}else status('저장소 확인 실패: '+(r.reason||'unknown')+(r.remote?' / '+r.remote:''))}catch(e){status('Git 확인 오류: '+e.message)}
+ try{
+  const r=await window.orcaAPI.verifyRepo(lessonOf('clone').steps[0].url);
+  // clone 확인만 한다. Orca 등록 여부는 알 수 없으므로 단계는 사용자가 직접 넘긴다.
+  if(r.ok)status('✓ Git clone 확인됨: '+r.folder+' — 이제 Orca에 이 폴더를 프로젝트로 등록한 뒤 “완료했어요”를 누르세요.');
+  else status((r.reason==='cancelled'?'':'저장소 확인 실패: ')+(REPO_REASON[r.reason]||r.reason)+(r.remote?' (origin: '+r.remote+')':''));
+ }catch(e){status('Git 확인 오류: '+e.message)}
 };
 $('showRect').onclick=()=>{
  const [x,y,width,height]=['rx','ry','rw','rh'].map(id=>Number($(id).value));

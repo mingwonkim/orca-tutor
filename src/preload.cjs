@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('orcaAPI',{
   openUrl:url=>ipcRenderer.invoke('open-url',String(url)),
   setTop:v=>ipcRenderer.invoke('set-top',!!v),
   bridgeInfo:()=>ipcRenderer.invoke('bridge-info'),
-  verifyRepo:()=>ipcRenderer.invoke('verify-repo'),
+  verifyRepo:url=>ipcRenderer.invoke('verify-repo',String(url)),
   highlightRect:r=>ipcRenderer.invoke('highlight-rect',r),
   onBrowserEvent:callback=>ipcRenderer.on('browser-event',(_e,data)=>callback(data))
 });
