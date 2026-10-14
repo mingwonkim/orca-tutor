@@ -11,4 +11,5 @@
 
 ## 검증
 - `node --check` 로 수정 파일 3개 구문 확인.
-- `npm test`, Electron 실행, 실제 github.com 은 **미검증** (이 세션에서 실행하지 못함).
+- `npm test`: 64/64 통과.
+- Electron 실행, 실제 github.com 은 **미검증**.
