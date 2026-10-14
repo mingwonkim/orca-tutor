@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Orca Tutor</title>
+<style>
+:root{font-family:system-ui,-apple-system,'Segoe UI','Malgun Gothic',sans-serif;color:#e7eafa;background:#101523}
+*{box-sizing:border-box}body{margin:0}
+header{padding:18px 20px;background:#1b2337;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:19px;margin:0}small,.muted{color:#9ba9c3}main{padding:18px}
+select,button,input{font:inherit} #rectInputs{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin:8px 0} #rectInputs input{width:100%;background:#121b2e;color:white;border:1px solid #52617e;border-radius:6px;padding:6px}
+select{background:#1c2940;color:white;border:1px solid #43516b;border-radius:9px;padding:10px;width:100%;margin:8px 0 14px}
+button{cursor:pointer;border:0;border-radius:9px;padding:11px 14px;background:#6575f5;color:white;font-weight:650}
+button.secondary{background:#303b53}button:disabled{opacity:.4;cursor:default}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid #f8ec46;outline-offset:2px}
+.card{border:1px solid #3a4964;background:#1c2639;border-radius:14px;padding:16px;margin-top:12px}
+.pill{font-size:12px;color:#c9d2ff;background:#373c75;padding:4px 9px;border-radius:12px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.step{font-size:12px;color:#abb9d5;margin:12px 0}.title{font-size:20px;font-weight:750;margin:10px 0}p{line-height:1.65}
+.key{padding:12px;background:#0f1729;border:1px solid #5365a4;border-radius:9px;text-align:center;font-size:20px;font-weight:700;margin:14px 0}
+.key .unverified{font-size:11px;font-weight:600;color:#ffd479;margin-top:6px}
+.menu{font-size:12px;color:#c7d0e6;background:#16203a;border-left:3px solid #ffd479;padding:8px 10px;border-radius:6px}
+code{white-space:pre-wrap;word-break:break-all;color:#a3f3cf}
+.command{background:#101a2c;padding:12px;border-radius:9px;margin:10px 0}
+#context details{border-top:1px solid #33415c;padding:8px 0}
+#context summary{cursor:pointer;font-size:13px;font-weight:700;color:#c9d2ff}
+#context p{margin:6px 0 2px;font-size:13px}
+.actions{display:flex;gap:8px;margin-top:18px}.actions button{flex:1}
+.progress{height:6px;background:#303e56;border-radius:20px;overflow:hidden}
+.progress>div{height:100%;background:#9b8cff;transition:width .2s}
+label{font-size:12px}.hint{font-size:12px;line-height:1.5;color:#a6b3cf;margin-top:18px}
+#status{font-size:12px;color:#9ddcb8;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>✦ Orca Tutor</h1><small>실제 화면을 따라 하는 단계별 실습</small></div>
+  <label><input id="top" type="checkbox" checked> 항상 위</label>
+</header>
+<main>
+  <label for="lesson">학습 과정</label>
+  <select id="lesson"></select>
+  <div class="row"><span id="tag" class="pill"></span><small id="count"></small></div>
+  <div class="progress" id="progress" role="progressbar" aria-label="과정 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="bar"></div></div>
+  <section class="card" aria-live="polite">
+    <div class="step" id="step"></div>
+    <div class="title" id="title"></div>
+    <p id="body"></p>
+    <div id="key" class="key" hidden></div>
+    <div id="menu" class="menu" hidden></div>
+    <div id="command" class="command" hidden></div>
+    <div id="link"></div>
+    <div id="pair" class="command"><strong>브라우저 연동</strong><p class="muted" style="font-size:12px">확장 프로그램에 아래 연결 코드를 입력하세요. 코드는 앱을 다시 시작하면 바뀝니다.</p><code id="paircode">연결 준비 중</code><button class="secondary" id="copyPair">연결 코드 복사</button></div>
+    <div id="context"></div>
+    <div class="command" id="verifyRepoPanel" hidden><p>Clone 완료 검증: 저장소 폴더를 선택하면 Git origin 주소를 검사합니다.</p><button id="verifyRepo" class="secondary">저장소 폴더 확인</button></div>
+    <details class="command"><summary>Orca 화면 수동 형광펜 (실험적)</summary><p class="muted">자동 UI 인식이 아닙니다. 화면 좌표(x, y, 너비, 높이)를 직접 입력하세요. 클릭은 통과합니다.</p><div id="rectInputs"><input id="rx" type="number" placeholder="X"><input id="ry" type="number" placeholder="Y"><input id="rw" type="number" placeholder="너비"><input id="rh" type="number" placeholder="높이"></div><button id="showRect" class="secondary">강조 표시</button> <button id="hideRect" class="secondary">숨기기</button></details>
+    <p id="verify" class="muted"></p>
+    <div class="actions"><button class="secondary" id="prev">이전</button><button id="next">완료했어요 →</button></div>
+    <div id="status" role="status"></div>
+  </section>
+  <p class="hint">이 버전은 Orca 내부 조작을 자동 판독하지 않습니다. 실제 작업을 확인한 뒤 ‘완료했어요’를 누르세요(Alt+→ / Alt+←로 이동). 메뉴와 단축키는 Orca 버전에 따라 달라질 수 있습니다.</p>
+  <button class="secondary" id="reset">현재 과정 처음부터</button>
+</main>
+<script src="lessons.js"></script>
+<script src="state.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>
